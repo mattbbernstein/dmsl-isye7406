@@ -27,7 +27,10 @@ def main():
         this_row = pd.DataFrame([this_row], columns=cols)
         test_err = pd.concat([test_err, this_row])
 
-    print(test_err.describe())
+    summary = test_err.describe()
+    summary = summary.apply(lambda x: np.square(x) if x.name == 'std' else x, axis = 1)
+    summary = summary.rename(index={"std":"var"})
+    print(summary)
 
 def read_data() -> tuple:
     zip_train = pd.read_csv("hw1/zip.train.csv", header=None)
