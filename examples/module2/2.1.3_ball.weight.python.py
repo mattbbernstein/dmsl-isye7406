@@ -6,9 +6,9 @@ def main():
     pass
 
 def matrix_method():
-    y = np.array([[2,3,4]]).T
-    A = np.array([[1, 0, 1]]).T
-    B = np.array([[0, 1, 1]]).T
+    y = np.array([[3,4,6,6]]).T
+    A = np.array([[1, 0, 1, 1]]).T
+    B = np.array([[0, 1, 1, 1]]).T
     X = np.concatenate([A, B], axis = 1)
 
     XTX = np.dot(X.T, X)
@@ -32,18 +32,18 @@ def matrix_method():
     print("[{}, {}]".format(a_plus_b - pred_width, a_plus_b + pred_width))
 
 def slr():
-    y = np.array([[2,3,4]]).T
-    A = np.array([[1, 0, 1]]).T
-    B = np.array([[0, 1, 1]]).T
+    y = np.array([[3,4,6,6]]).T
+    A = np.array([[1, 0, 1, 1]]).T
+    B = np.array([[0, 1, 1, 1]]).T
     X = np.concatenate([A, B], axis = 1)
 
     model = sm.OLS(y, X)
     results = model.fit()
-    pred = results.get_prediction(np.array([1,1]))
+    pred = results.get_prediction(np.array([0,1]))
     print(results.summary())
     print(results.conf_int(alpha = 0.3))
     print(pred.summary_frame(alpha = 0.3))
 
 
 if __name__ == "__main__":
-    matrix_method()
+    slr()

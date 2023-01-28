@@ -5,9 +5,9 @@
 ## The X1 variable refers to whether ball A is in the observed weight or not
 ## The X2 variable refer to whether ball B counts in the observed weight or not. 
 ## 
-Y  <- c(2,3,4); 
-X1 <- c(1,0,1); 
-X2 <- c(0,1,1);
+Y  <- c(3,4,6,6); 
+X1 <- c(1,0,1,1); 
+X2 <- c(0,1,1,1);
 
 # Linear Regression Model # Here "-1" means "no intercept"
 mod1 <- lm( Y ~ X1 + X2 -1) 
