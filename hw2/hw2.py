@@ -6,27 +6,29 @@ from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.linear_model import LassoCV, RidgeCV, LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import mean_squared_error
+from sklearn.cross_decomposition import PLSRegression
 import itertools
 
 SEED = 7406
-RAND_STATE = np.random.RandomState(SEED)
 
 def main():
+    RNG = np.random.RandomState(SEED)
     train, test = read_and_split_data("hw2/fat.csv")
     model_names = ["Full", "5-Best (p-score)", "5-Best (AIC)", "Stepwise", "LASSO", "Ridge", "PCA", "PLS"]
-    # full_lr_model = all_features_lr(train)
-    # k_p_model, k_aic_model = best_k_models(train)
-    # lasso_model, lasso_lambda = lasso(train, plot=False)
-    # ridge_model, ridge_lambda, ridge_scaler = ridge(train)
-    pca_model, pca_trans, pca_scaler = pca_regr(train, plot=False)
+    full_lr_model, full_mse = all_features_lr(train, test)
+    (k_p_model, k_p_mse), (k_aic_model, k_aic_mse) = best_k_models(train, test)
+    step_model, step_mse = stepwise(train, test)
+    lasso_model, lasso_mse, lasso_lambda = lasso(train, test, plot=False, rng=RNG)
+    ridge_model, ridge_mse, ridge_lambda = ridge(train, test)
+    pca_model, pca_mse, pca_trans = pca_regr(train, test, plot=False)
+    pls_model, pls_mse = pls_regr(train, test, plot=False)
 
-    n_pcs = pca_model.n_features_in_
-    scaled_test = pca_scaler.transform(test)
-    pca_test = pca_trans.transform(scaled_test[:,1:])[:,:n_pcs]
-    pca_predictions = pca_model.predict(pca_test)
-    pca_mse = np.sum((test.iloc[:,0] - pca_predictions) ** 2) / pca_predictions.size
-    print(pca_mse)
+    mses = [full_mse, k_p_mse, k_aic_mse, step_mse, lasso_mse, ridge_mse, pca_mse, pls_mse]
+    results = pd.DataFrame(mses, columns=["MSE"], index=model_names)
+    print(results)
+
 
 def read_and_split_data(filename: str):
     data = pd.read_csv(filename)
@@ -37,20 +39,23 @@ def read_and_split_data(filename: str):
     test_data = data.iloc[test_rows]
     return (train_data, test_data)
 
-def all_features_lr(data):
+def all_features_lr(data, test):
     X = data.iloc[:,1:]
     y = data.iloc[:,0]
     model = sm.OLS(y, X).fit()
-    return model
+    mse = calc_mse(model, test.iloc[:,1:], test.iloc[:,0])
+    return model, mse
 
-def best_k_models(data):
+def best_k_models(data, test):
     X = data.iloc[:,1:]
     y = data.iloc[:,0]
     p_best_features = SelectKBest(score_func=f_regression, k=5).fit(X, y)
     model_pscore = sm.OLS(y, data.loc[:, p_best_features.get_feature_names_out()]).fit()
+    mse_pscore = calc_mse(model_pscore, test.loc[:,model_pscore.model.exog_names], test.iloc[:,0])
     aic_best_features = full_param_search(X, y, combo_size=5)
     model_aic = sm.OLS(y, data.loc[:, aic_best_features]).fit()
-    return (model_pscore, model_aic)
+    mse_aic = calc_mse(model_aic, test.loc[:,model_aic.model.exog_names], test.iloc[:,0])
+    return ((model_pscore, mse_pscore), (model_aic, mse_aic))
 
 def full_param_search(X, y, combo_size):
     combinations = itertools.combinations(X.columns, r = combo_size)
@@ -63,11 +68,45 @@ def full_param_search(X, y, combo_size):
             best_combo = combo
     return best_combo
 
-def lasso(data, plot = False):
+def stepwise(data, test):
+    X = data.iloc[:,1:]
+    y = data.iloc[:,0]
+    features = X.columns.values.tolist()
+    init_aics = [get_aic(X.loc[:,feature], y) for feature in features]
+    idx = np.argmin(init_aics)
+    next_model = [features[idx]]
+    best_aic = init_aics[idx]
+    current_model = []
+
+    while next_model != current_model:
+        current_model = next_model.copy()
+        possible_models = [(current_model, best_aic)]
+        if len(current_model) > 1:
+            for feature in current_model:
+                test_model = current_model.copy()
+                test_model.remove(feature)
+                test_aic = get_aic(X.loc[:,feature], y)
+                possible_models.append((test_model, test_aic))
+        unused_features = [f for f in features if f not in current_model]
+        for feature in unused_features:
+            test_model = current_model.copy()
+            test_model.append(feature)
+            test_aic = get_aic(X.loc[:,feature], y)
+            possible_models.append((test_model, test_aic))
+        
+        next_model_idx = np.argmin([m[1] for m in possible_models])
+        next_model = possible_models[next_model_idx][0].copy()
+        best_aic = possible_models[next_model_idx][1]
+    
+    model = sm.OLS(y, X.loc[:,next_model]).fit()
+    mse = calc_mse(model, test.loc[:, model.model.exog_names], test.iloc[:,0])
+    return (model, mse)
+
+def lasso(data, test, plot = False, rng=None):
     scaled_data = StandardScaler().fit_transform(data)
     scaled_X = scaled_data[:,1:]
     y = data.iloc[:,0]
-    lasso_cv = LassoCV(cv=5, random_state=RAND_STATE).fit(scaled_X, y)
+    lasso_cv = LassoCV(cv=5, random_state=rng).fit(scaled_X, y)
     if plot:
         lambdas, coefs, _ = lasso_cv.path(scaled_X,y, alphas = lasso_cv.alphas_)
         plot_coef_path(lambdas, coefs, "LASSO", best_lambda = lasso_cv.alpha_)
@@ -76,20 +115,20 @@ def lasso(data, plot = False):
     
     X = data.loc[:,selected_coefficients["Feature"]]
     model = sm.OLS(y, X).fit()
-    return (model, lasso_cv.alpha_)
+    mse = calc_mse(model, test.loc[:,model.model.exog_names], test.iloc[:,0])
+    return (model, mse, lasso_cv.alpha_)
 
-def ridge(data):
+def ridge(data, test):
     scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(data)
-    X = scaled_data[:,1:]
+    X = scaler.fit_transform(data.iloc[:,1:])
     y = data.iloc[:,0]
-    ridge_cv = RidgeCV(cv=5).fit(X, y)
-    return (ridge_cv, ridge_cv.alpha_, scaler)
+    ridge_cv = RidgeCV().fit(X, y)
+    mse = calc_mse(ridge_cv, scaler.transform(test.iloc[:,1:]), test.iloc[:,0])
+    return (ridge_cv, mse, ridge_cv.alpha_)
     
-def pca_regr(data, plot = False):
+def pca_regr(data, test, plot = False):
     scaler = StandardScaler()
-    scaled_data = scaler.fit_transform(data)
-    scaled_X = scaled_data[:,1:]
+    scaled_X = scaler.fit_transform(data.iloc[:,1:])
     y = data.iloc[:,0]
     pca = PCA()
     red_X = pca.fit_transform(scaled_X)
@@ -99,7 +138,34 @@ def pca_regr(data, plot = False):
     print(n_pcs)
 
     model = LinearRegression().fit(red_X[:, :n_pcs], y)
-    return (model, pca, scaler)
+    test_X = pca.transform(scaler.transform(test.iloc[:,1:]))[:,:n_pcs]
+    mse = calc_mse(model, test_X, test.iloc[:,0])
+    return (model, mse, pca)
+
+def pls_regr(data, test, plot = False):
+    scaler = StandardScaler()
+    scaled_X = scaler.fit_transform(data.iloc[:,1:])
+    y = data.iloc[:,0]
+
+    cv_mse = []
+    for i in range(1, scaled_X.shape[1]+1):
+        pls = PLSRegression(n_components=i)
+        score = -1 * cross_val_score(pls, scaled_X, y, scoring='neg_mean_squared_error').mean()
+        cv_mse.append(score)
+
+    if(plot):
+        plot_pls_cv(cv_mse)
+
+    n_comp = np.argmin(cv_mse)
+    model = PLSRegression(n_components=n_comp).fit(scaled_X, y)
+    mse = calc_mse(model, scaler.transform(test.iloc[:,1:]), test.iloc[:,0])
+    return (model, mse)
+
+def plot_pls_cv(res):
+    plt.plot(range(1, len(res)+1), res, 'o-')
+    plt.xlabel('Number of PLS Components')
+    plt.ylabel('Mean CV MSE')
+    plt.show()
 
 def plot_pca_exp_var(pca):
     plt.plot(np.cumsum(pca.explained_variance_ratio_), 'o-')
@@ -125,21 +191,10 @@ def plot_coef_path(lambdas, coefs, regr_name, best_lambda = None):
         plt.legend((l1[-1], l2), (regr_name, "Optimal Lambda"), loc = "upper left")
     plt.show()
 
-def test_error(model, test_data, type = 'std', scaler = None, pca_trans = None):
-    if type == 'std':
-        features = model.model.exog_names
-        predictions = model.predict(test_data.loc[:,features])
-    if type == 'scaled':
-        scaled_test = scaler.transform(test_data)
-        predictions = model.predict(scaled_test[:,1:])
-    if type == 'pca':
-        n_pcs = model.n_features_in_
-        scaled_test = scaler.transform(test_data)
-        pca_test = pca_trans.transform(scaled_test[:,1:])[:,:n_pcs]
-        predictions = model.predict(pca_test)
-
-    test_error = np.sum((test_data.iloc[:,0] - predictions) ** 2) / predictions.size
-    return test_error
+def calc_mse(model, test_data, actual):
+    predictions = model.predict(test_data)
+    mse = mean_squared_error(actual, predictions)
+    return mse
 
 def get_aic(X, y):
     model = sm.OLS(y, X).fit()
