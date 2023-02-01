@@ -29,7 +29,6 @@ def main():
     results = pd.DataFrame(mses, columns=["MSE"], index=model_names)
     print(results)
 
-
 def read_and_split_data(filename: str):
     data = pd.read_csv(filename)
     data = data.drop(columns = ["siri", "density", "free"])
@@ -42,7 +41,7 @@ def read_and_split_data(filename: str):
 def all_features_lr(data, test):
     X = data.iloc[:,1:]
     y = data.iloc[:,0]
-    model = sm.OLS(y, X).fit()
+    model = LinearRegression().fit(X, y)
     mse = calc_mse(model, test.iloc[:,1:], test.iloc[:,0])
     return model, mse
 
@@ -50,11 +49,12 @@ def best_k_models(data, test):
     X = data.iloc[:,1:]
     y = data.iloc[:,0]
     p_best_features = SelectKBest(score_func=f_regression, k=5).fit(X, y)
-    model_pscore = sm.OLS(y, data.loc[:, p_best_features.get_feature_names_out()]).fit()
-    mse_pscore = calc_mse(model_pscore, test.loc[:,model_pscore.model.exog_names], test.iloc[:,0])
+    model_pscore = LinearRegression().fit(data.loc[:, p_best_features.get_feature_names_out()], y)
+    mse_pscore = calc_mse(model_pscore, test.loc[:,model_pscore.feature_names_in_], test.iloc[:,0])
+
     aic_best_features = full_param_search(X, y, combo_size=5)
-    model_aic = sm.OLS(y, data.loc[:, aic_best_features]).fit()
-    mse_aic = calc_mse(model_aic, test.loc[:,model_aic.model.exog_names], test.iloc[:,0])
+    model_aic = LinearRegression().fit(data.loc[:, aic_best_features], y)
+    mse_aic = calc_mse(model_aic, test.loc[:,model_aic.feature_names_in_], test.iloc[:,0])
     return ((model_pscore, mse_pscore), (model_aic, mse_aic))
 
 def full_param_search(X, y, combo_size):
@@ -62,7 +62,7 @@ def full_param_search(X, y, combo_size):
     best_combo = None
     lowest_score = None
     for combo in combinations:
-        this_aic = get_aic(X.loc[:, combo], y)
+        this_aic = calc_aic(X.loc[:, combo], y)
         if (lowest_score is None) or (this_aic < lowest_score):
             lowest_score = this_aic
             best_combo = combo
@@ -71,12 +71,11 @@ def full_param_search(X, y, combo_size):
 def stepwise(data, test):
     X = data.iloc[:,1:]
     y = data.iloc[:,0]
+    dummy = pd.Series(np.ones_like(y))
     features = X.columns.values.tolist()
-    init_aics = [get_aic(X.loc[:,feature], y) for feature in features]
-    idx = np.argmin(init_aics)
-    next_model = [features[idx]]
-    best_aic = init_aics[idx]
-    current_model = []
+    best_aic = calc_aic(dummy, y)
+    current_model = ["init"]
+    next_model = []
 
     while next_model != current_model:
         current_model = next_model.copy()
@@ -85,21 +84,21 @@ def stepwise(data, test):
             for feature in current_model:
                 test_model = current_model.copy()
                 test_model.remove(feature)
-                test_aic = get_aic(X.loc[:,feature], y)
+                test_aic = calc_aic(X.loc[:,feature], y)
                 possible_models.append((test_model, test_aic))
         unused_features = [f for f in features if f not in current_model]
         for feature in unused_features:
             test_model = current_model.copy()
             test_model.append(feature)
-            test_aic = get_aic(X.loc[:,feature], y)
+            test_aic = calc_aic(X.loc[:,feature], y)
             possible_models.append((test_model, test_aic))
         
         next_model_idx = np.argmin([m[1] for m in possible_models])
         next_model = possible_models[next_model_idx][0].copy()
         best_aic = possible_models[next_model_idx][1]
     
-    model = sm.OLS(y, X.loc[:,next_model]).fit()
-    mse = calc_mse(model, test.loc[:, model.model.exog_names], test.iloc[:,0])
+    model = LinearRegression().fit(X.loc[:,next_model], y)
+    mse = calc_mse(model, test.loc[:, model.feature_names_in_], test.iloc[:,0])
     return (model, mse)
 
 def lasso(data, test, plot = False, rng=None):
@@ -114,8 +113,8 @@ def lasso(data, test, plot = False, rng=None):
     selected_coefficients = selected_coefficients[selected_coefficients["Coefficient"] != 0]
     
     X = data.loc[:,selected_coefficients["Feature"]]
-    model = sm.OLS(y, X).fit()
-    mse = calc_mse(model, test.loc[:,model.model.exog_names], test.iloc[:,0])
+    model = LinearRegression().fit(X, y)
+    mse = calc_mse(model, test.loc[:,model.feature_names_in_], test.iloc[:,0])
     return (model, mse, lasso_cv.alpha_)
 
 def ridge(data, test):
@@ -135,7 +134,6 @@ def pca_regr(data, test, plot = False):
     if plot:
         plot_pca_exp_var(pca)
     n_pcs = next(i for i, val in enumerate(np.cumsum(pca.explained_variance_ratio_)) if val > 0.95) + 1
-    print(n_pcs)
 
     model = LinearRegression().fit(red_X[:, :n_pcs], y)
     test_X = pca.transform(scaler.transform(test.iloc[:,1:]))[:,:n_pcs]
@@ -196,9 +194,28 @@ def calc_mse(model, test_data, actual):
     mse = mean_squared_error(actual, predictions)
     return mse
 
-def get_aic(X, y):
-    model = sm.OLS(y, X).fit()
-    return model.aic
+def calc_aic(X, y, model = None, ic = 'aic'):
+    if model is None:
+        if X.ndim == 1:
+            X = X.values.reshape(-1,1)
+        model = LinearRegression().fit(X, y)
+    
+    loglik = log_likelihood(model, X, y)
+    n = X.shape[0]
+    k = X.shape[1] + 1
+    penalty = 2*k
+
+    if ic == 'bic':
+        penalty *= np.log(n)
+
+    return (-2*loglik + penalty)
+
+def log_likelihood(model, X, y):
+    fitted = model.predict(X)
+    ssr = np.sum((y - fitted)**2)
+    n = X.shape[0]
+    loglik = (-(n/2)*(1+np.log(2*np.pi))) - ((n/2)*(np.log(ssr/n)))
+    return loglik
 
 if __name__ == "__main__":
     main()
