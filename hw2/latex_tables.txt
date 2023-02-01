@@ -1,0 +1,55 @@
+\begin{table}
+
+\caption{MSE for each model}
+\centering
+\begin{tabular}[t]{l|r}
+\hline
+  & MSE\\
+\hline
+PCA & 9.488612\\
+\hline
+Ridge & 10.174908\\
+\hline
+PLS & 14.141992\\
+\hline
+LASSO & 14.966777\\
+\hline
+Full & 15.015278\\
+\hline
+5-Best (p-score) & 15.457313\\
+\hline
+5-Best (AIC) & 17.021661\\
+\hline
+Stepwise & 17.168963\\
+\hline
+\end{tabular}
+\end{table}
+
+------------------------------------------------------
+
+\begin{table}
+
+\caption{Aggregate MSE from 500 MonteCarlo CV Trials}
+\centering
+\begin{tabular}[t]{l|r|r}
+\hline
+  & Mean & Median\\
+\hline
+Stepwise & 17.81251 & 17.39974\\
+\hline
+5-Best (AIC) & 18.12364 & 17.17710\\
+\hline
+LASSO & 18.61595 & 17.20485\\
+\hline
+Ridge & 18.96446 & 18.31686\\
+\hline
+5-Best (p-score) & 19.38463 & 17.75214\\
+\hline
+PLS & 19.39497 & 17.12886\\
+\hline
+Full & 20.99267 & 17.60521\\
+\hline
+PCA & 22.03938 & 21.36599\\
+\hline
+\end{tabular}
+\end{table}
