@@ -42,13 +42,17 @@
 
 Eight models were created from the data in order to understand the different types of Linear Regressions
 
-\subsubsection*{Full Model}
+\subsection*{Full Model}
 A least squares linear model was fitted on all features, excluding \textit{siri}, \textit{density}, \textit{free} as noted above.
 
-\subsubsection*{5 Best Feature Selection}
+\subsection*{5 Best Feature Selection}
 Two models were created by selecting the 5 best features and performing a regression against those. The first model was created by selecting the 5 features with the lowest p-scores in the full model. The second model was selected by performing an exhaustive search over all combinations of 5 features and selecting the combination with the lowest Mallow's Cp score. 
 
-\subsection{}
+\subsection*{Stepwise Regression}
+A model was created using a bi-directional stepwise regression. Beginning with an empty model, a single feature was added or removed and the AIC of the resulting model was calculated. This process was repeated until no changes to the model from the previous step improved upon the model. 
+
+\subsection*{Ridge Regression}
+A Ridge regression model was created using the full dataset. The $\lambda$ parameter was selected using a 5-fold cross validation selecting for the minimum MSE of the training set.
 
 \section*{Results}
 
