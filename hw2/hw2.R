@@ -26,7 +26,7 @@ plsr <- pls_mse(train,test,plot=TRUE)
 
 mses <- c(full$mse, kbest$pscore$mse, kbest$search$mse, stepwise$mse, ridge$mse, 
          lasso$mse, pcar$mse, plsr$mse)
-models <- c(full$model, kbest$pscore$model, kbest$search$model, stepwise$model, ridge$model, 
+models <- list(full$model, kbest$pscore$model, kbest$search$model, stepwise$model, ridge$model, 
             lasso$model, pcar$model, plsr$model)
 model_names <- c("Full", "5-Best (p-score)", "5-Best (AIC)", "Stepwise",
                  "Ridge", "LASSO", "PCA", "PLS")
