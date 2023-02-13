@@ -42,9 +42,9 @@ data <- full_data
 
 set.seed(1234)
 folds_accel <- createMultiFolds(data$mpg01, k = 5, times = 3)
-seeds_accel <- sample.int(10000, length(folds)+1)
+seeds_accel <- sample.int(10000, length(folds_accel)+1)
 folds_dwh <- createMultiFolds(data$mpg01, k = 5, times = 3)
-seeds_dwh <- sample.int(10000, length(folds)+1)
+seeds_dwh <- sample.int(10000, length(folds_dwh)+1)
 accel_trControl <- trainControl(method = "repeatedcv", seeds=seeds_accel, index=folds_accel)
 dwh_trControl <- trainControl(method = "repeatedcv", seeds=seeds_dwh, index=folds_dwh)
 
