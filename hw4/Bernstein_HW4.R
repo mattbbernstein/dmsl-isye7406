@@ -21,6 +21,7 @@ smoothing_stats <- function(data, true) {
 # span <- 0.75
 # bandwidth <- 0.2
 # spar <- NULL
+# title_prefix <- "Part 1: "
 
 # Part 2 Values
 set.seed(79)
@@ -28,9 +29,10 @@ x_i <- round(2*pi*sort(c(0.5, -1 + rbeta(50,2,2), rbeta(50,2,2))), 8)
 span <- 0.3365
 bandwidth <- 0.2
 spar <- 0.7163
+title_prefix <- "Part 2: "
 
 fx_i <- mexican_hat(x_i)
-trials <- 10
+trials <- 1000
 loess_data <- data.frame(matrix(nrow=n, ncol=0))
 kernel_data <- data.frame(matrix(nrow=n, ncol=0))
 splines_data <- data.frame(matrix(nrow=n, ncol=0))
@@ -88,7 +90,7 @@ fm_data %>%
     geom_line(aes(x = x, y = Value, col = Smoother)) + 
     scale_color_manual(values=c("True" = "black", "LOESS" = "red",
                                 "NW_Kernel" = "blue", "Splines" = "darkgreen")) +
-    ggtitle("Average Value of all Smoothers")
+    ggtitle(paste0(title_prefix,"Average Value of all Smoothers"))
 
 bias_data %>% 
   pivot_longer(cols=-any_of("x"), names_to = "Smoother", values_to = "Value") %>%
@@ -96,7 +98,7 @@ bias_data %>%
   geom_line(aes(x = x, y = Value, col = Smoother)) + 
   scale_color_manual(values=c("LOESS" = "red", "NW_Kernel" = "blue", 
                               "Splines" = "darkgreen")) +
-  ylab("Bias") + ggtitle("Average Bias of all Smoothers")
+  ylab("Bias") + ggtitle(paste0(title_prefix,"Average Bias of all Smoothers"))
 
 var_data %>% 
   pivot_longer(cols=-any_of("x"), names_to = "Smoother", values_to = "Value") %>%
@@ -104,7 +106,7 @@ var_data %>%
   geom_line(aes(x = x, y = Value, col = Smoother)) + 
   scale_color_manual(values=c("LOESS" = "red", "NW_Kernel" = "blue", 
                               "Splines" = "darkgreen")) +
-  ylab("Variance") + ggtitle("Average Variance of all Smoothers")
+  ylab("Variance") + ggtitle(paste0(title_prefix,"Average Variance of all Smoothers"))
 
 mse_data %>% 
   pivot_longer(cols=-any_of("x"), names_to = "Smoother", values_to = "Value") %>%
@@ -112,4 +114,4 @@ mse_data %>%
   geom_line(aes(x = x, y = Value, col = Smoother)) + 
   scale_color_manual(values=c("LOESS" = "red", "NW_Kernel" = "blue", 
                               "Splines" = "darkgreen")) +
-  ylab("MSE") + ggtitle("Average MSE of all Smoothers")
+  ylab("MSE") + ggtitle(paste0(title_prefix,"Average MSE of all Smoothers"))
