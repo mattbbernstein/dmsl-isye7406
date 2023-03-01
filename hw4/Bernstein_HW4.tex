@@ -39,7 +39,22 @@
 \maketitle
 
 \section*{Introduction}
+
+The purpose of this experiment is to compare different methods of the local smoothing over a particularly difficult function. Two sets of datapoints, one equidistant and one pre-set, were generated between $-2\pi$ and $2\pi$. The idea was to smooth over the "Mexican Hat" function, which contains some properties that could be difficult for smoothing algorithms. 
+
 \section*{Exploratory Data Analysis}
+
+The "Mexican Hat" function is shown in Figure \ref{fig:mexican_hat} 
+
+\begin{figure}[!htb]
+  \centering
+  \includegraphics[width=0.6\textwidth]{mexican_hat}
+  \caption{Mexican Hat function}
+  \label{fig:mexican_hat}
+\end{figure}
+
+While the center section appears to be a set of smooth curves that should be easily estimatable for a local smoothign algorithm, the tails are essentially flat. This could pose a problem for smoothing algorithms that try to find local polynomials. It also affects the smoothing parameters. Smoothing closer to the tails is likely going to be less accurate as the surrounding points are goind to be highly influenced by the other flat points.
+
 \section*{Methodology}
 
 In order to test the various local smoothing methods, two sets of points that fit the "mexican hat function":
